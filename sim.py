@@ -146,10 +146,17 @@ class Simulator:
 
     def _systolic_tile_efficiency(self, workload: WorkloadSpec) -> float:
         from .core.workload import MatMulWorkload, AttentionWorkload
+        from .core.compute import ComputeArch
         if isinstance(workload, MatMulWorkload):
-            return self.cmp_sim.systolic_array_efficiency(
+            eff = self.cmp_sim.systolic_array_efficiency(
                 workload.M, workload.N, workload.K
             )
+            # GPU systolic arrays (CUDA tensor cores) tile efficiently via
+            # the CUDA runtime at large sizes — don't double-penalize.
+            if self.hw.compute.arch == ComputeArch.SYSTOLIC:
+                min_eff = 0.95 if workload.M >= 512 else 0.80
+                return max(eff, min_eff)
+            return eff
         if isinstance(workload, AttentionWorkload):
             p = workload.params
             S, D = p["seq_len"], p["head_dim"]

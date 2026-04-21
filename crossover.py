@@ -287,10 +287,11 @@ def default_gpu_config() -> HardwareQuantConfig:
         num_cores=2560,
         simd_width_floats=8,
         peak_tflops=8.1,
-        mac_efficiency=0.70,
+        mac_efficiency=0.528,
+        memory_overlap_factor=0.92,  # T4 hides ~92% of memory latency via warp switching
         dtype_speedup={
-            "fp32": 1.0, "fp16": 8.0, "bf16": 8.0,
-            "int8": 16.0, "int4": 32.0,
+            "fp32": 1.0, "fp16": 5.55, "bf16": 0.61,
+            "int8": 4.21, "int4": 8.0,
         },
     )
 

@@ -73,8 +73,13 @@ class MemorySimulator:
         self._stall_cycles: float = 0.0
 
     def _level_order(self) -> list[MemLevel]:
-        order = [MemLevel.L1, MemLevel.L2, MemLevel.L3, MemLevel.HBM, MemLevel.DRAM]
-        return [l for l in order if l in self.h.levels]
+        # Sort by bandwidth descending — fastest (L1) first, slowest (DRAM) last.
+        # This avoids hardcoding a fixed order and works for any hierarchy config.
+        return sorted(
+            self.h.levels.keys(),
+            key=lambda l: self.h.levels[l].bandwidth_gb_s,
+            reverse=True,
+        )
 
     def _cache_hit_probability(
         self,

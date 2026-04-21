@@ -20,6 +20,7 @@ class ComputeUnitConfig:
     peak_tflops: float        # theoretical peak (FP32)
     mac_efficiency: float     # fraction of peak achievable in practice
     dtype_speedup: dict       # relative throughput for fp16, int8, etc.
+    memory_overlap_factor: float = 0.60  # fraction of memory latency hidden by HW prefetch
 
     @property
     def peak_gflops(self) -> float:
@@ -61,7 +62,9 @@ class ComputeSimulator:
 
         # Total cycles is max of compute and memory (overlap model).
         # Stalls that exceed compute time add directly to total.
-        overlap_factor = 0.6   # fraction of memory latency hidden by out-of-order / prefetch
+        # GPU hides ~92% of memory latency via prefetch/warp switching.
+        # CPU hides ~60%. This is set per-hardware via the config.
+        overlap_factor = getattr(self.cfg, "memory_overlap_factor", 0.6)
         exposed_stall  = memory_stall_cycles * (1.0 - overlap_factor)
         total_cycles   = compute_cycles + exposed_stall
 
