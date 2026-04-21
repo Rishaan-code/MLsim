@@ -2,9 +2,9 @@
 
 A cycle-approximate simulator for ML accelerator workloads. The core idea is simple: before you start benchmarking fp16 vs int8 on real hardware, you should be able to predict whether switching dtypes will actually help based on the hardware specs alone.
 
-Most people pick dtypes by running experiments on every target. That works but it tells you nothing generalizable. mlsim models the roofline, the memory hierarchy, and the actual overhead of quantization (dequantization cost, layout penalties, scale storage) to predict the arithmetic intensity threshold where a dtype switch goes from helpful to harmful.
+Most people pick dtypes by running experiments on every target. That works but it lowkey tells you nothing generalizable. mlsim models the roofline, the memory hierarchy, and the actual overhead of quantization (dequantization cost, layout penalties, scale storage) to predict the arithmetic intensity threshold where a dtype switch goes from helpful to harmful.
 
-I validated it against real T4 GPU measurements and found some things that naive roofline analysis misses entirely -- bf16 is slower than fp32 on T4 because there's no native tensor core support for it, and the int8 crossover point is 62x higher than theory predicts. The paper in `/paper` goes into the full findings.
+I validated it against real T4 GPU measurements (using Google colab free GPU because i no have gpu) and found some things that naive roofline analysis misses entirely: bf16 is slower than fp32 on T4 because there's no native tensor core support for it, and the int8 crossover point is 62x higher than theory predicts. The paper in `/paper` goes into the full findings.
 
 ## What it models
 
