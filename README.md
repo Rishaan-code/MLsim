@@ -1,4 +1,5 @@
 # mlsim
+**Paper:** https://doi.org/10.5281/zenodo.19685708
 
 A cycle-approximate simulator for ML accelerator workloads. The core idea is simple: before you start benchmarking fp16 vs int8 on real hardware, you should be able to predict whether switching dtypes will actually help based on the hardware specs alone.
 
