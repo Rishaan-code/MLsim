@@ -63,9 +63,11 @@ class SimulationRun:
         return sum(r.runtime_ms for r in self.results)
 
     def by_bottleneck(self) -> dict[str, list[WorkloadResult]]:
-        out: dict[str, list] = {"compute": [], "memory": []}
+        # Categories are open-ended (compute / memory / launch-overhead), so
+        # bucket by whatever the compute model reports rather than a fixed set.
+        out: dict[str, list[WorkloadResult]] = {"compute": [], "memory": []}
         for r in self.results:
-            out[r.bottleneck].append(r)
+            out.setdefault(r.bottleneck, []).append(r)
         return out
 
     def average_utilization(self) -> float:

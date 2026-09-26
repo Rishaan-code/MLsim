@@ -1,0 +1,8 @@
+# Core model + analysis
+numpy>=1.24
+matplotlib>=3.7
+rich>=13.0
+
+# Only needed to re-collect hardware measurements in experiments/benchmark.ipynb
+# (run on a CUDA machine; not required to run the model or validate.py)
+# torch>=2.1

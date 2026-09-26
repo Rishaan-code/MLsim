@@ -18,7 +18,7 @@ I validated it against real T4 GPU measurements (using Google colab free GPU bec
 ## Setup
 
 ```bash
-pip install rich matplotlib numpy plotly
+pip install -r requirements.txt
 ```
 
 ## Running the simulator
@@ -45,6 +45,28 @@ result = Simulator(hw).run_workload(wl)
 print(result.runtime_ms)   # predicted runtime
 print(result.bottleneck)   # "compute" or "memory"
 ```
+
+## Validating against real hardware
+
+`results/results.csv` holds 32 measured matmul runtimes from a Colab T4 (8 sizes x 4 dtypes),
+collected with CUDA-event timing and 20 warmup + 100 timed iterations per point.
+To re-run the model over those same configurations and print the prediction error:
+
+```bash
+python -m mlsim.validate              # per-point table + mean/median error
+python -m mlsim.validate --holdout    # derive the launch-overhead constant from the
+                                      # smallest matrices only, score on the rest
+python -m mlsim.validate --threshold 25   # non-zero exit if error regresses past 25%
+```
+
+Two things worth knowing about the model's validity region:
+
+- Above 1024x1024 it predicts within roughly 5-8%.
+- Below about 512 it is dominated by fixed kernel launch cost rather than FLOPs. A
+  32x32 matmul is 65 kFLOP, about 8 ns of real math on a T4, but measures 16-27 us.
+  Without a dispatch-cost term the model underpredicts those points by ~99%. The
+  `kernel_launch_overhead_us` field handles this; see the holdout check for why that
+  constant is a measured quantity rather than a tuned one.
 
 ## Running the crossover analysis
 

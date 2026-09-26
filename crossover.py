@@ -289,6 +289,14 @@ def default_gpu_config() -> HardwareQuantConfig:
         peak_tflops=8.1,
         mac_efficiency=0.528,
         memory_overlap_factor=0.92,  # T4 hides ~92% of memory latency via warp switching
+        # Fixed dispatch cost, not a tuned knob. At 32x32 a matmul is 65 kFLOP,
+        # ~8 ns of real math on this part, so measured runtime there (15.6-26.9 us
+        # depending on dtype, 18.2 us mean across the float kernels) is essentially
+        # pure launch cost. Grid search over all 32 measured points independently
+        # converges to 18.5 us, and `python -m mlsim.validate --holdout` derives the
+        # constant from the 32x32 points alone and still cuts error from 50.7% to
+        # 18.2% on the 28 points it was not fit on.
+        kernel_launch_overhead_us=18.5,
         dtype_speedup={
             "fp32": 1.0, "fp16": 5.55, "bf16": 0.61,
             "int8": 4.21, "int4": 8.0,

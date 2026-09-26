@@ -396,9 +396,16 @@ def gpu_quantization_model(freq_ghz: float = 1.0) -> QuantizationModel:
     GPU (T4-class) quantization overhead model.
 
     GPUs handle quantization much better than CPUs:
-    - Tensor cores natively support fp16/bf16/int8
+    - Turing tensor cores natively support fp16, int8 and int4 math, but NOT
+      bf16; bf16 tensor core support first appears in Ampere (SM80). On T4,
+      bf16 therefore falls off the tensor core path and measures ~0.58x fp32
+      throughput (see results/results.csv and validate.py).
     - Dequantization is pipelined with memory loads
     - But int4 still has non-trivial software overhead on T4
+
+    NOTE: the bf16 throughput penalty is carried in ComputeUnitConfig's
+    dtype_speedup, not here, to avoid counting it twice. The configs below
+    model dequantization and layout cost only.
     """
     model = QuantizationModel("GPU (T4)", freq_ghz, peak_bandwidth_gb_s=320.0)
 

@@ -21,6 +21,11 @@ class ComputeUnitConfig:
     mac_efficiency: float     # fraction of peak achievable in practice
     dtype_speedup: dict       # relative throughput for fp16, int8, etc.
     memory_overlap_factor: float = 0.60  # fraction of memory latency hidden by HW prefetch
+    # Fixed per-dispatch cost that does not scale with problem size (CUDA kernel
+    # launch, driver round trip, queue submission). Dominates runtime for small
+    # kernels: a 32x32 matmul is ~65 kFLOP, roughly 8 ns of math on a T4, yet
+    # measures ~16-20 us. Leave at 0 for architectures with no dispatch step.
+    kernel_launch_overhead_us: float = 0.0
 
     @property
     def peak_gflops(self) -> float:
@@ -66,13 +71,25 @@ class ComputeSimulator:
         # CPU hides ~60%. This is set per-hardware via the config.
         overlap_factor = getattr(self.cfg, "memory_overlap_factor", 0.6)
         exposed_stall  = memory_stall_cycles * (1.0 - overlap_factor)
-        total_cycles   = compute_cycles + exposed_stall
+
+        # Fixed dispatch cost, independent of problem size. Without this the
+        # model underpredicts small kernels by ~99% because it assumes runtime
+        # is purely a function of FLOPs and bytes.
+        launch_us      = getattr(self.cfg, "kernel_launch_overhead_us", 0.0)
+        launch_cycles  = launch_us * 1e-6 * freq
+
+        total_cycles   = compute_cycles + exposed_stall + launch_cycles
 
         runtime_ms      = (total_cycles / freq) * 1e3
         utilization     = compute_cycles / max(1.0, total_cycles)
         effective_tflops = (flops / max(1e-12, runtime_ms * 1e-3)) / 1e12
 
-        bottleneck = "memory" if exposed_stall > compute_cycles * 0.2 else "compute"
+        if launch_cycles > compute_cycles + exposed_stall:
+            bottleneck = "launch-overhead"
+        elif exposed_stall > compute_cycles * 0.2:
+            bottleneck = "memory"
+        else:
+            bottleneck = "compute"
 
         return ComputeResult(
             arch=self.cfg.arch,

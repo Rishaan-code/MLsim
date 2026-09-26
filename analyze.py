@@ -126,7 +126,8 @@ def suite_summary(run: SimulationRun) -> dict:
     avg_hit       = sum(r.cache_hit_rate for r in results) / len(results)
 
     mem_bound     = sum(1 for r in results if r.bottleneck == "memory")
-    compute_bound = len(results) - mem_bound
+    launch_bound  = sum(1 for r in results if r.bottleneck == "launch-overhead")
+    compute_bound = len(results) - mem_bound - launch_bound
 
     return {
         "hardware":            run.hardware.name,
@@ -138,6 +139,7 @@ def suite_summary(run: SimulationRun) -> dict:
         "avg_compute_util":    avg_util,
         "avg_cache_hit_rate":  avg_hit,
         "memory_bound_ops":    mem_bound,
+        "launch_bound_ops":    launch_bound,
         "compute_bound_ops":   compute_bound,
         "peak_tflops_hw":      run.hardware.compute.effective_gflops() / 1000,
         "achieved_tflops":     (total_flops / max(1e-9, total_runtime * 1e-3)) / 1e12,
