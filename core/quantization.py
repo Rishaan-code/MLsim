@@ -272,6 +272,23 @@ class QuantizationModel:
 
         We approximate peak_compute_proxy from the bandwidth and a typical
         ridge point for this hardware class.
+
+        LIMITATION, measured and reproducible. This derivation uses only
+        effective_memory_reduction, layout_penalty and dequantization cost. It
+        never reads compute throughput, so it cannot distinguish two dtypes of
+        the same width: fp16 and bf16 are both 2 bytes with identical configs
+        here, and both come back at AI 4.0. On a T4 they differ by roughly 10x
+        in measured throughput, because Turing has a native fp16 tensor core
+        path and no bf16 one. Compute throughput is therefore the dominant term
+        for any dtype the hardware lacks native support for, and it is the one
+        term this formula omits.
+
+        Treat the number returned here as a bandwidth-savings bound only. The
+        throughput term lives in ComputeUnitConfig.dtype_speedup and is applied
+        in ComputeSimulator.simulate, not here.
+
+        Run `python -m mlsim.validate --crossover` to see the prediction next
+        to the measured outcome for every dtype.
         """
         r   = cfg.effective_memory_reduction
         d   = cfg.dequant_fraction * cfg.dequant_cycles_per_element

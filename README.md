@@ -68,6 +68,33 @@ Two things worth knowing about the model's validity region:
   `kernel_launch_overhead_us` field handles this; see the holdout check for why that
   constant is a measured quantity rather than a tuned one.
 
+## Known limitation of the analytical crossover
+
+The crossover AI returned by `QuantizationModel._crossover_ai` is derived from memory
+reduction, layout penalty and dequantization cost only. It does not read compute
+throughput, so it cannot tell two dtypes of the same width apart. fp16 and bf16 are
+both 2 bytes here and both come back at AI 4.0.
+
+The measurements in `results/results.csv` say otherwise:
+
+| dtype | analytical crossover AI | measured speedup vs fp32 (sizes >= 1024) | wins |
+|---|---|---|---|
+| fp16 | 4.00 | 5.54-5.72x | 3/3 |
+| bf16 | 4.00 | 0.55-0.62x | 0/3 |
+| int8 | 2.74 | 4.05-5.05x | 3/3 |
+
+Turing has a native fp16 tensor core path and no bf16 one, so bf16 falls back to a
+slower route. For any dtype the hardware lacks native support for, compute throughput
+is the dominant term, and it is exactly the term the analytical formula omits. The
+throughput term lives in `ComputeUnitConfig.dtype_speedup` and is applied in
+`ComputeSimulator.simulate`.
+
+Reproduce with:
+
+```bash
+python -m mlsim.validate --crossover
+```
+
 ## Running the crossover analysis
 
 ```python

@@ -9,6 +9,8 @@ so the headline accuracy number in the paper is reproducible from the repo.
 Usage (from the parent directory of MLsim/):
     python -m mlsim.validate
     python -m mlsim.validate --holdout      # anti-overfitting check
+    python -m mlsim.validate --crossover    # measured dtype benefit vs the
+                                            # analytical crossover prediction
     python -m mlsim.validate --threshold 25
 """
 
@@ -120,6 +122,62 @@ def holdout_check(rows: list[dict]) -> None:
     print("  the correction generalizes to data it was not fit on.")
 
 
+def crossover_check(rows: list[dict]) -> None:
+    """
+    Compare what the dtypes actually do on hardware against what the analytical
+    crossover model predicts they do.
+
+    This exists because the two disagree, and the disagreement is structural
+    rather than a tuning issue. QuantizationModel._crossover_ai derives the
+    crossover from effective_memory_reduction, layout_penalty and dequantization
+    cost only. It never reads compute throughput. fp16 and bf16 are both 2 bytes
+    per element with identical quantization configs, so the formula cannot
+    produce different answers for them, and it does not: both come back at
+    AI 4.0, "beneficial for most ML ops".
+
+    Measured on a T4, fp16 runs ~5.6x fp32 and bf16 runs ~0.58x. Compute
+    throughput, the one term the formula omits, is the dominant one for any
+    dtype the hardware lacks a native path for.
+    """
+    from .crossover import build_default_engine
+    from .core.quantization import Dtype
+
+    measured = {(int(r["matrix_size"]), r["dtype"]): float(r["runtime_ms"]) for r in rows}
+    sizes = sorted({s for s, _ in measured})
+    dtypes = [d for d in ("fp16", "bf16", "int8") if (sizes[0], d) in measured]
+
+    print("\nmeasured speedup vs fp32 at equal matrix size")
+    print("-" * 52)
+    print(f"{'size':>6} | " + "  ".join(f"{d:>6}" for d in dtypes))
+    for s in sizes:
+        cells = "  ".join(f"{measured[(s,'fp32')] / measured[(s,d)]:>6.2f}" for d in dtypes)
+        print(f"{s:>6} | {cells}")
+
+    # Analytical prediction from the quantization model.
+    engine = build_default_engine()
+    predicted = {p.dtype.value: p.crossover_ai
+                 for p in engine.predict_crossover_points("GPU (T4)")}
+
+    print("\nanalytical crossover AI vs measured outcome (compute-bound sizes)")
+    print("-" * 66)
+    big = [s for s in sizes if s >= 1024]
+    for d in dtypes:
+        sp = [measured[(s, "fp32")] / measured[(s, d)] for s in big]
+        wins = sum(1 for x in sp if x > 1.0)
+        pred = predicted.get(d)
+        pred_s = f"{pred:.2f}" if pred is not None else "n/a"
+        verdict = "beneficial" if wins == len(big) else "NOT beneficial"
+        print(f"  {d:>5}: predicted crossover AI {pred_s:>6} | "
+              f"measured {min(sp):.2f}-{max(sp):.2f}x, wins {wins}/{len(big)} -> {verdict}")
+
+    if predicted.get("fp16") == predicted.get("bf16"):
+        print("\n  NOTE: fp16 and bf16 receive identical analytical predictions because")
+        print("  _crossover_ai models only memory reduction, layout penalty and dequant")
+        print("  cost. On this part they differ by ~10x in measured throughput. Treat the")
+        print("  analytical crossover as a bandwidth-savings bound only; the compute")
+        print("  throughput term lives in ComputeUnitConfig.dtype_speedup.")
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Validate mlsim against measured T4 runtimes.")
     ap.add_argument("--csv", default=RESULTS_CSV, help="path to measured results CSV")
@@ -128,6 +186,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--holdout", action="store_true",
                     help="derive the launch-overhead constant from the smallest "
                          "matrices alone and score on the remaining points")
+    ap.add_argument("--crossover", action="store_true",
+                    help="compare measured per-dtype benefit against the "
+                         "analytical crossover prediction")
     args = ap.parse_args(argv)
 
     rows = load_measurements(args.csv)
@@ -186,6 +247,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.holdout:
         holdout_check(rows)
+
+    if args.crossover:
+        crossover_check(rows)
 
     if args.threshold is not None and mape > args.threshold:
         print(f"\nFAIL: mean error {mape:.1f}% exceeds threshold {args.threshold:.1f}%")
