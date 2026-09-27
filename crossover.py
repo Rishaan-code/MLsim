@@ -298,6 +298,11 @@ def default_gpu_config() -> HardwareQuantConfig:
         # 18.2% on the 28 points it was not fit on.
         kernel_launch_overhead_us=18.5,
         dtype_speedup={
+            # bf16 measures 0.58x fp32 averaged over the compute-bound sizes
+            # (>=1024) and 0.72x averaged over all eight, since the small sizes
+            # are launch-bound and pull the ratio toward 1. 0.61 is the value
+            # that best fits the full sweep. `validate.py --crossover` prints
+            # the per-size numbers.
             "fp32": 1.0, "fp16": 5.55, "bf16": 0.61,
             "int8": 4.21, "int4": 8.0,
         },

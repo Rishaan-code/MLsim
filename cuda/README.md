@@ -29,7 +29,8 @@ compute-bound sizes it holds 53-60% of cuBLAS.
 
 Every kernel is checked against cuBLAS for correctness before it is timed. Max
 absolute deviation stays at or below 4.2e-05, which is fp32 accumulation-order
-noise, not a logic error.
+noise, not a logic error. The cuBLAS row compares cuBLAS against itself, so its
+0.000e+00 is trivially true and is not evidence of anything.
 
 ## What each kernel changes
 
@@ -44,7 +45,8 @@ each thread still reads two shared values per single FMA.
 
 **regtiled** — each thread owns a 4x4 patch of C in registers. Per accumulation
 step it reads TM + TN = 8 values from shared memory and issues TM * TN = 16
-FMAs, so the shared-read-to-FLOP ratio improves about 8x over the tiled version.
+FMAs. That is 2 FMAs per shared read, against 0.5 in the tiled kernel (2 reads
+per 1 FMA), so the shared-read-to-FLOP ratio improves 4x.
 Block computes a 64x64 output tile with 256 threads, marching over K in steps
 of 8. This is where the large win comes from: 6.3x naive.
 
@@ -84,7 +86,8 @@ enters the next, then diffs against a reference matmul.
 g++ -O2 -std=c++14 emulate.cpp -o emulate && ./emulate
 ```
 
-18 cases pass, including the ones built to break boundary logic: 100x70x53 where
+9 size configurations pass, both kernels checked in each, so 18 assertions in
+total. They include the ones built to break boundary logic: 100x70x53 where
 no dimension divides any tile, 33x65x17 smaller than a single block tile, 1x1x1,
 and 65x64x64 / 64x65x64 / 64x64x65 sitting one element past a tile boundary in
 each dimension.
