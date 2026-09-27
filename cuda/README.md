@@ -46,7 +46,7 @@ each thread still reads two shared values per single FMA.
 **regtiled** — each thread owns a 4x4 patch of C in registers. Per accumulation
 step it reads TM + TN = 8 values from shared memory and issues TM * TN = 16
 FMAs. That is 2 FMAs per shared read, against 0.5 in the tiled kernel (2 reads
-per 1 FMA), so the shared-read-to-FLOP ratio improves 4x.
+per 1 FMA), so arithmetic intensity against shared memory rises 4x.
 Block computes a 64x64 output tile with 256 threads, marching over K in steps
 of 8. This is where the large win comes from: 6.3x naive.
 
@@ -91,3 +91,12 @@ total. They include the ones built to break boundary logic: 100x70x53 where
 no dimension divides any tile, 33x65x17 smaller than a single block tile, 1x1x1,
 and 65x64x64 / 64x65x64 / 64x64x65 sitting one element past a tile boundary in
 each dimension.
+
+## A note on cuda_results.csv
+
+The `frac_of_cublas` column was originally emitted as 0 for every non-cuBLAS
+row: the harness timed cuBLAS last, so the baseline was still zero when the
+other rows were written. `matmul.cu` now times cuBLAS first. The committed CSV
+is the original T4 run with that column recomputed from the same measured
+timings (`cublas_ms / ms`, identical to the gflops ratio); no kernel was
+re-benchmarked and no other number changed.
