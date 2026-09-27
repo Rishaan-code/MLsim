@@ -1,6 +1,24 @@
 # mlsim
 **Paper:** https://doi.org/10.5281/zenodo.19685708
 
+### Relationship to the paper
+
+The paper is mlsim v0.2 (April 2026) and reports **18.7% mean error at large
+matrix sizes**. It also lists, as a known limitation, that the model does not
+account for CUDA kernel launch overhead: "mlsim is cycle-approximate, not
+cycle-accurate. It does not model CUDA kernel launch overhead."
+
+This repository implements that missing term. A measured per-launch dispatch
+cost brings error to **17.4% mean / 11.3% median across all 32 measured points**
+rather than large sizes only, and the constant is derived on the four smallest
+matrices and scored on the other 28 (`python validate.py --holdout`), so it is
+a correction rather than a fit. The two numbers are not in conflict: they are
+different model versions measured over different size ranges.
+
+The paper's three empirical findings are unchanged, since they come from the
+measurements rather than the model.
+
+
 A first-order performance model for ML accelerator workloads. The core idea is simple: before you start benchmarking fp16 vs int8 on real hardware, you should be able to predict whether switching dtypes will actually help based on the hardware specs alone.
 
 Most people pick dtypes by running experiments on every target. That works, but it tells you nothing that generalizes to the next target. mlsim models the roofline, the memory hierarchy, and the actual overhead of quantization (dequantization cost, layout penalties, scale storage) to predict the arithmetic intensity threshold where a dtype switch goes from helpful to harmful.
