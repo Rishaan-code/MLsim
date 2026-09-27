@@ -1,11 +1,11 @@
 # mlsim
 **Paper:** https://doi.org/10.5281/zenodo.19685708
 
-A cycle-approximate simulator for ML accelerator workloads. The core idea is simple: before you start benchmarking fp16 vs int8 on real hardware, you should be able to predict whether switching dtypes will actually help based on the hardware specs alone.
+A first-order performance model for ML accelerator workloads. The core idea is simple: before you start benchmarking fp16 vs int8 on real hardware, you should be able to predict whether switching dtypes will actually help based on the hardware specs alone.
 
-Most people pick dtypes by running experiments on every target. That works but it lowkey tells you nothing generalizable. mlsim models the roofline, the memory hierarchy, and the actual overhead of quantization (dequantization cost, layout penalties, scale storage) to predict the arithmetic intensity threshold where a dtype switch goes from helpful to harmful.
+Most people pick dtypes by running experiments on every target. That works, but it tells you nothing that generalizes to the next target. mlsim models the roofline, the memory hierarchy, and the actual overhead of quantization (dequantization cost, layout penalties, scale storage) to predict the arithmetic intensity threshold where a dtype switch goes from helpful to harmful.
 
-I validated it against real T4 GPU measurements (using Google colab free GPU because i no have gpu) and found some things that naive roofline analysis misses entirely: bf16 is slower than fp32 on T4 because there's no native tensor core support for it, and the int8 crossover point is 62x higher than theory predicts. The paper in `/paper` goes into the full findings.
+I validated it against real T4 measurements (on a free Colab GPU) and found things that naive roofline analysis misses entirely: bf16 is slower than fp32 on T4 because there's no native tensor core support for it, and the int8 crossover point is 62x higher than theory predicts. The paper in `/paper` goes into the full findings.
 
 ## What it models
 
@@ -23,13 +23,13 @@ pip install -r requirements.txt
 
 ## Running the simulator
 
-From the parent directory of `mlsim/`:
+From inside the clone:
 
 ```bash
-python -m mlsim.main llm        # transformer decoder layer workloads
-python -m mlsim.main vision     # ResNet conv stack
-python -m mlsim.main scaling    # matmul from 32x32 to 8192x8192
-python -m mlsim.main all        # everything
+python main.py llm        # transformer decoder layer workloads
+python main.py vision     # ResNet conv stack
+python main.py scaling    # matmul from 32x32 to 8192x8192
+python main.py all        # everything
 ```
 
 ## Using it programmatically
@@ -53,10 +53,10 @@ collected with CUDA-event timing and 20 warmup + 100 timed iterations per point.
 To re-run the model over those same configurations and print the prediction error:
 
 ```bash
-python -m mlsim.validate              # per-point table + mean/median error
-python -m mlsim.validate --holdout    # derive the launch-overhead constant from the
-                                      # smallest matrices only, score on the rest
-python -m mlsim.validate --threshold 25   # non-zero exit if error regresses past 25%
+python validate.py              # per-point table + mean/median error
+python validate.py --holdout    # derive the launch-overhead constant from the
+                                # smallest matrices only, score on the rest
+python validate.py --threshold 25   # non-zero exit if error regresses past 25%
 ```
 
 Two things worth knowing about the model's validity region:
@@ -99,7 +99,7 @@ throughput term lives in `ComputeUnitConfig.dtype_speedup` and is applied in
 Reproduce with:
 
 ```bash
-python -m mlsim.validate --crossover
+python validate.py --crossover
 ```
 
 ## Running the crossover analysis

@@ -22,6 +22,15 @@ import os
 import sys
 from dataclasses import dataclass
 
+# Allow running this file directly from inside a clone ("python validate.py"),
+# not just as a module ("python -m mlsim.validate"). The clone directory is not
+# always named "mlsim", so relative imports need the parent on sys.path first.
+if __package__ in (None, ""):
+    import os as _os, sys as _sys
+    _here = _os.path.dirname(_os.path.abspath(__file__))
+    _sys.path.insert(0, _os.path.dirname(_here))
+    __package__ = _os.path.basename(_here)
+
 from .sim import Simulator
 from .core.workload import MatMulWorkload
 from .crossover import default_gpu_config
