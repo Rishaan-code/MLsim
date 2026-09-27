@@ -68,6 +68,13 @@ Two things worth knowing about the model's validity region:
   `kernel_launch_overhead_us` field handles this; see the holdout check for why that
   constant is a measured quantity rather than a tuned one.
 
+## Hand-written CUDA kernels
+
+`cuda/` holds three fp32 SGEMM kernels for Turing (naive, shared-memory tiled,
+register tiled) benchmarked against cuBLAS on the same T4 used to calibrate this
+model. The register-tiled kernel reaches 3143 GFLOP/s at 1024x1024, 6.3x the naive
+version and 60% of cuBLAS. See `cuda/README.md`.
+
 ## Known limitation of the analytical crossover
 
 The crossover AI returned by `QuantizationModel._crossover_ai` is derived from memory
